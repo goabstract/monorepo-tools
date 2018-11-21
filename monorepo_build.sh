@@ -20,6 +20,13 @@ fi
 MONOREPO_SCRIPT_DIR=$(dirname "$0")
 # Wipe original refs (possible left-over back-up after rewriting git history)
 $MONOREPO_SCRIPT_DIR/original_refs_wipe.sh
+# Checking out orphan commit so it 's possible to delete current branch
+git checkout --orphan void
+# Delete all local branches
+for BRANCH in `git branch`; do
+    git branch -D $BRANCH
+done
+
 for PARAM in $@; do
     # Parse parameters in format <remote-name>[:<subdirectory>]
     PARAM_ARR=(${PARAM//:/ })
@@ -28,16 +35,18 @@ for PARAM in $@; do
     if [ "$SUBDIRECTORY" == "" ]; then
         SUBDIRECTORY=$REMOTE
     fi
-    # Rewrite all branches from the first remote, only master branches from others
+
+    echo "Building all branches of the remote '$REMOTE'"
     if [ "$PARAM" == "$1" ]; then
-        echo "Building all branches of the remote '$REMOTE'"
-        $MONOREPO_SCRIPT_DIR/load_branches_from_remote.sh $REMOTE
+        $MONOREPO_SCRIPT_DIR/load_branches_from_remote.sh $REMOTE $SUBDIRECTORY --master
         $MONOREPO_SCRIPT_DIR/rewrite_history_into.sh $SUBDIRECTORY --branches
         MERGE_REFS='master'
     else
-        echo "Building branch 'master' of the remote '$REMOTE'"
+        $MONOREPO_SCRIPT_DIR/load_branches_from_remote.sh $REMOTE $SUBDIRECTORY
         git checkout --detach $REMOTE/master
-        $MONOREPO_SCRIPT_DIR/rewrite_history_into.sh $SUBDIRECTORY
+        # Re-write this current detached branch and also any branches starting
+        # with the $SUBDIRECTORY prefix
+        $MONOREPO_SCRIPT_DIR/rewrite_history_into.sh $SUBDIRECTORY "HEAD --branches=$SUBDIRECTORY--*"
         MERGE_REFS="$MERGE_REFS $(git rev-parse HEAD)"
     fi
     # Wipe the back-up of original history
