@@ -52,6 +52,8 @@ for PARAM in $@; do
     # Wipe the back-up of original history
     $MONOREPO_SCRIPT_DIR/original_refs_wipe.sh
 done
+# Delete unprefixed tags
+git for-each-ref 'refs/tags/v*' --format='%(refname:short)' | xargs git tag -d
 # Merge all master branches
 COMMIT_MSG="merge multiple repositories into a monorepo"$'\n'$'\n'"- merged using: 'monorepo_build.sh $@'"$'\n'"- see https://github.com/shopsys/monorepo-tools"
 git checkout master
